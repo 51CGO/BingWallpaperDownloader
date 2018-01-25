@@ -110,7 +110,7 @@ class BingWallpaperDownloader(object):
             "extension": match.group(6)
         }
 
-    def get_data(self, url, path_image):
+    def retrieve_image(self, url, path_image):
 
         print(url)
         self.client.request("GET", url)
@@ -131,6 +131,7 @@ class BingWallpaperDownloader(object):
                 data_image = self.parse_url(url)
                 url = url.replace(data_image["resolution"], self.resolution)
 
+                data_image["resolution"] = self.resolution
                 filename = LOCAL_IMAGE_NAME % data_image
 
                 path_image = os.path.join(self.dir_storage, filename)
@@ -139,7 +140,7 @@ class BingWallpaperDownloader(object):
                     print("%s: already downloaded" % filename)
                     continue
 
-                self.get_data(url, path_image)
+                self.retrieve_image(url, path_image)
                 print(path_image)
 
 
