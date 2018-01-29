@@ -3,6 +3,7 @@
 import argparse
 import http.client
 import json
+import logging
 import os
 import os.path
 import re
@@ -18,9 +19,9 @@ BING_URL_INDEX = (
 BING_PATTERN_IMAGE = (
     "^"
     "(.*)/"  # Directory
-    "([a-zA-Z]+)"  # Name
+    "([a-zA-Z0-9]+)"  # Name
     "_"
-    "([A-Z][A-Z]-[A-Z][A-Z])"  # Country
+    "([a-zA-Z][a-zA-Z]-[a-zA-Z][a-zA-Z])"  # Country
     "([0-9]+)"  # Identifier
     "_"
     "([0-9]+x[0-9]+)"  # Resolution
@@ -34,12 +35,9 @@ LOCAL_IMAGE_NAME = "%(name)s_%(identifier)s_%(resolution)s.%(extension)s"
 
 class BingWallpaperDownloader(object):
 
-    def __init__(self, directory, countries, resolution):
+    def __init__(self, directory, resolution):
 
-        if type(countries) == str:
-            self.countries = [countries]
-        else:
-            self.countries = countries
+        self.logger = logging.getLogger(self.__class__.__name__)
 
         self.resolution = resolution
 
@@ -54,12 +52,12 @@ class BingWallpaperDownloader(object):
 
         shutil.rmtree(self.dir_tmp)
 
-    def retrieve_index(self, country):
+    def retrieve_index(self, country, num):
         """Retrieve image index for the specified country"""
 
         args = {
             "index": 0,
-            "num": 8,
+            "num": num,
             "country": country
         }
 
@@ -92,10 +90,10 @@ class BingWallpaperDownloader(object):
             if url is None:
                 continue
 
+            self.logger.debug("URL: %s" % url)
             yield url
 
-    @staticmethod
-    def parse_url(url):
+    def parse_url(self, url):
 
         match = re.match(BING_PATTERN_IMAGE, url)
         if match is None:
@@ -116,32 +114,36 @@ class BingWallpaperDownloader(object):
         self.client.request("GET", url)
         response = self.client.getresponse()
 
+        data = response.read()
+        if len(data) == 0:
+            return False
+
         fd = open(path_image, "wb")
-        fd.write(response.read())
+        fd.write(data)
         fd.close()
 
-    def run(self):
+        return True
 
-        for country in self.countries:
+    def run(self, country, num):
 
-            data_index = self.retrieve_index(country)
+        data_index = self.retrieve_index(country, num)
 
-            for url in self.parse_index(data_index):
+        for url in self.parse_index(data_index):
 
-                data_image = self.parse_url(url)
-                url = url.replace(data_image["resolution"], self.resolution)
+            data_image = self.parse_url(url)
+            url = url.replace(data_image["resolution"], self.resolution)
 
-                data_image["resolution"] = self.resolution
-                filename = LOCAL_IMAGE_NAME % data_image
+            data_image["resolution"] = self.resolution
+            filename = LOCAL_IMAGE_NAME % data_image
 
-                path_image = os.path.join(self.dir_storage, filename)
+            path_image = os.path.join(self.dir_storage, filename)
 
-                if os.path.exists(path_image):
-                    print("%s: already downloaded" % filename)
-                    continue
+            if os.path.exists(path_image):
+                print("%s: already downloaded" % filename)
+                continue
 
-                self.retrieve_image(url, path_image)
-                print(path_image)
+            self.retrieve_image(url, path_image)
+            print(path_image)
 
 
 if __name__ == '__main__':
@@ -153,9 +155,15 @@ if __name__ == '__main__':
         "--resolution", default="1920x1200", help="Country to download")
     parser.add_argument(
         "--storage", default="./bing", help="Storage directory")
+    parser.add_argument(
+        "--number", type=int, default=8, help="Number of files to download")
+    parser.add_argument(
+        "--log", help="Log file")
 
     args = parser.parse_args()
 
-    downloader = BingWallpaperDownloader(
-        args.storage, args.country, args.resolution)
-    downloader.run()
+    if args.log is not None:
+        logging.basicConfig(filename=args.log, level=logging.DEBUG)
+
+    downloader = BingWallpaperDownloader(args.storage, args.resolution)
+    downloader.run(args.country, args.number)
