@@ -124,7 +124,7 @@ class BingWallpaperDownloader(object):
 
         return True
 
-    def run(self, country, num):
+    def run(self, country, num, latest=False):
 
         data_index = self.retrieve_index(country, num)
 
@@ -137,6 +137,19 @@ class BingWallpaperDownloader(object):
             filename = LOCAL_IMAGE_NAME % data_image
 
             path_image = os.path.join(self.dir_storage, filename)
+
+            # Create symlink "latest"
+            if latest is True:
+
+                dummy, ext = os.path.splitext(filename)
+                path_latest = os.path.join(
+                    self.dir_storage, "latest" + ext)
+
+                if os.path.exists(path_latest):
+                    os.unlink(path_latest)
+                os.symlink(filename, path_latest)
+
+                latest = False
 
             if os.path.exists(path_image):
                 print("%s: already downloaded" % filename)
@@ -158,6 +171,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "--number", type=int, default=8, help="Number of files to download")
     parser.add_argument(
+        "--latest", action="store_true",
+        help="Create link to the latest file downloaded")
+    parser.add_argument(
         "--log", help="Log file")
 
     args = parser.parse_args()
@@ -166,4 +182,4 @@ if __name__ == '__main__':
         logging.basicConfig(filename=args.log, level=logging.DEBUG)
 
     downloader = BingWallpaperDownloader(args.storage, args.resolution)
-    downloader.run(args.country, args.number)
+    downloader.run(args.country, args.number, args.latest)
