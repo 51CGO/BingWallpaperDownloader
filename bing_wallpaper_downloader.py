@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3
 
 import argparse
 import http.client
@@ -17,18 +17,21 @@ BING_URL_INDEX = (
     "format=js&idx=%(index)s&n=%(num)s&mkt=%(country)s")
 
 BING_PATTERN_IMAGE = (
-    "^"
-    "(.*)/"  # Directory
-    "([a-zA-Z0-9]+)"  # Name
+    "id="
+    "OHR\."
+    "([a-zA-Z0-9.]+)"  # Name
     "_"
     "([a-zA-Z][a-zA-Z]-[a-zA-Z][a-zA-Z])"  # Country
     "([0-9]+)"  # Identifier
     "_"
     "([0-9]+x[0-9]+)"  # Resolution
-    "\."
-    "(.*)"  # Extension
-    "$"
+    "\\."
+    "(jpg)"  # Extension
+    "&"
 )
+
+# /th?id=OHR.HuayMaeKhamin_FR-FR8967588356_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp
+
 
 LOCAL_IMAGE_NAME = "%(name)s_%(identifier)s_%(resolution)s.%(extension)s"
 
@@ -95,22 +98,20 @@ class BingWallpaperDownloader(object):
 
     def parse_url(self, url):
 
-        match = re.match(BING_PATTERN_IMAGE, url)
+        match = re.search(BING_PATTERN_IMAGE, url)
         if match is None:
             return None
 
         return {
-            "directory": match.group(1),
-            "name": match.group(2),
-            "country": match.group(3),
-            "identifier": match.group(4),
-            "resolution": match.group(5),
-            "extension": match.group(6)
+            "name": match.group(1),
+            "country": match.group(2),
+            "identifier": match.group(3),
+            "resolution": match.group(4),
+            "extension": match.group(5)
         }
 
     def retrieve_image(self, url, path_image):
 
-        print(url)
         self.client.request("GET", url)
         response = self.client.getresponse()
 
@@ -128,7 +129,12 @@ class BingWallpaperDownloader(object):
 
         data_index = self.retrieve_index(country, num)
 
+        logging.debug("INDEX")
+        logging.debug(data_index)
+
         for url in self.parse_index(data_index):
+
+            logging.debug("URL: %s" % url)
 
             data_image = self.parse_url(url)
             url = url.replace(data_image["resolution"], self.resolution)
